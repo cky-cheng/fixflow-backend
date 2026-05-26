@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.kory.fixflow.order.mapper.RepairOrderEvaluationMapper">
+
+    <!-- 新增工单评价 -->
+    <insert id="insertEvaluation"
+            parameterType="com.kory.fixflow.order.entity.RepairOrderEvaluation"
+            useGeneratedKeys="true"
+            keyProperty="id">
+        INSERT INTO repair_order_evaluation(
+            order_id, score, content, evaluator_id, evaluate_time
+        ) VALUES (
+            #{orderId}, #{score}, #{content}, #{evaluatorId}, #{evaluateTime}
+        )
+    </insert>
+
+    <!-- 根据工单ID 查询评价实体 -->
+    <select id="selectByOrderId"
+            parameterType="java.lang.Long"
+            resultType="com.kory.fixflow.order.entity.RepairOrderEvaluation">
+        SELECT
+            id,
+            order_id,
+            score,
+            content,
+            evaluator_id,
+            evaluate_time,
+            create_time,
+            update_time
+        FROM repair_order_evaluation
+        WHERE order_id = #{orderId}
+        LIMIT 1
+    </select>
+
+    <!-- 根据工单ID 查询评价展示信息-->
+    <select id="selectEvaluationVOByOrderId"
+            parameterType="java.lang.Long"
+            resultType="com.kory.fixflow.order.vo.RepairOrderEvaluationVO">
+        SELECT
+            e.id,
+            e.order_id,
+            e.score,
+            e.content,
+            e.evaluator_id,
+            u.real_name AS evaluator_real_name,
+            e.evaluate_time
+        FROM repair_order_evaluation e
+        LEFT JOIN sys_user u
+            ON e.evaluator_id = u.id
+            AND u.is_deleted = 0
+        WHERE e.order_id = #{orderId}
+        LIMIT 1
+    </select>
+
+
+</mapper>

@@ -1,0 +1,307 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kory.fixflow.asset.mapper.AssetMapper">
+
+    <!--
+        根据资产编号查询资产
+
+        当前采用“删除后编号仍占用”的策略，
+        因此不加 is_deleted = 0。
+    -->
+    <select id="selectByAssetNo"
+            parameterType="java.lang.String"
+            resultType="com.kory.fixflow.asset.entity.Asset">
+
+        SELECT
+        id,
+        asset_no,
+        asset_name,
+        category_id,
+        department_id,
+        user_id,
+        purchase_date,
+        location,
+        status,
+        remark,
+        is_deleted,
+        create_time,
+        update_time
+        FROM asset
+        WHERE asset_no = #{assetNo}
+        LIMIT 1
+
+    </select>
+
+    <!--
+        新增资产
+
+        useGeneratedKeys="true"：
+        使用数据库自增主键回填到 asset.id。
+    -->
+    <insert id="insertAsset"
+            parameterType="com.kory.fixflow.asset.entity.Asset"
+            useGeneratedKeys="true"
+            keyProperty="id">
+
+        INSERT INTO asset
+        (
+        asset_no,
+        asset_name,
+        category_id,
+        department_id,
+        user_id,
+        purchase_date,
+        location,
+        status,
+        remark
+        )
+        VALUES
+        (
+        #{assetNo},
+        #{assetName},
+        #{categoryId},
+        #{departmentId},
+        #{userId},
+        #{purchaseDate},
+        #{location},
+        #{status},
+        #{remark}
+        )
+
+    </insert>
+
+    <!--
+        资产分页列表查询
+
+        关联：
+        - asset_category：拿分类名称
+        - department：拿部门名称
+        - sys_user：拿使用人姓名
+    -->
+    <select id="selectAssetPageList"
+            parameterType="com.kory.fixflow.asset.dto.AssetPageQueryDTO"
+            resultType="com.kory.fixflow.asset.vo.AssetPageVO">
+
+        SELECT
+        a.id,
+        a.asset_no,
+        a.asset_name,
+        a.category_id,
+        ac.category_name,
+        a.department_id,
+        d.dept_name,
+        a.user_id,
+        u.real_name AS user_real_name,
+        a.purchase_date,
+        a.location,
+        a.status,
+        a.create_time
+        FROM asset a
+        LEFT JOIN asset_category ac
+        ON a.category_id = ac.id
+        AND ac.is_deleted = 0
+        LEFT JOIN department d
+        ON a.department_id = d.id
+        AND d.is_deleted = 0
+        LEFT JOIN sys_user u
+        ON a.user_id = u.id
+        AND u.is_deleted = 0
+
+        <where>
+            AND a.is_deleted = 0
+
+            <if test="assetNo != null and assetNo != ''">
+                AND a.asset_no LIKE CONCAT('%', #{assetNo}, '%')
+            </if>
+
+            <if test="assetName != null and assetName != ''">
+                AND a.asset_name LIKE CONCAT('%', #{assetName}, '%')
+            </if>
+
+            <if test="categoryId != null">
+                AND a.category_id = #{categoryId}
+            </if>
+
+            <if test="departmentId != null">
+                AND a.department_id = #{departmentId}
+            </if>
+
+            <if test="status != null">
+                AND a.status = #{status}
+            </if>
+        </where>
+
+        ORDER BY a.create_time DESC
+
+        LIMIT #{offset}, #{pageSize}
+
+    </select>
+
+    <!-- 资产分页总数查询 -->
+    <select id="selectAssetPageCount"
+            parameterType="com.kory.fixflow.asset.dto.AssetPageQueryDTO"
+            resultType="java.lang.Long">
+
+        SELECT COUNT(*)
+        FROM asset a
+
+        <where>
+            AND a.is_deleted = 0
+
+            <if test="assetNo != null and assetNo != ''">
+                AND a.asset_no LIKE CONCAT('%', #{assetNo}, '%')
+            </if>
+
+            <if test="assetName != null and assetName != ''">
+                AND a.asset_name LIKE CONCAT('%', #{assetName}, '%')
+            </if>
+
+            <if test="categoryId != null">
+                AND a.category_id = #{categoryId}
+            </if>
+
+            <if test="departmentId != null">
+                AND a.department_id = #{departmentId}
+            </if>
+
+            <if test="status != null">
+                AND a.status = #{status}
+            </if>
+        </where>
+
+    </select>
+
+
+
+    <!--
+    根据ID查询资产实体
+
+    用于：
+    1. 修改资产前校验存在；
+    2. 删除资产前校验存在。
+    -->
+    <select id="selectById"
+            parameterType="java.lang.Long"
+            resultType="com.kory.fixflow.asset.entity.Asset">
+        SELECT
+        id,
+        asset_no,
+        asset_name,
+        category_id,
+        department_id,
+        user_id,
+        purchase_date,
+        location,
+        status,
+        remark,
+        is_deleted,
+        create_time,
+        update_time
+        FROM asset
+        WHERE id = #{id}
+        AND is_deleted = 0
+        LIMIT 1
+    </select>
+
+
+
+    <!--
+    查询资产详情
+
+    关联：
+    - 分类名称
+    - 部门名称
+    - 使用人姓名
+    -->
+    <select id="selectAssetDetailById"
+            parameterType="java.lang.Long"
+            resultType="com.kory.fixflow.asset.vo.AssetDetailVO">
+        SELECT
+        a.id,
+        a.asset_no,
+        a.asset_name,
+        a.category_id,
+        ac.category_name,
+        a.department_id,
+        d.dept_name,
+        a.user_id,
+        u.real_name AS user_real_name,
+        a.purchase_date,
+        a.location,
+        a.status,
+        a.remark,
+        a.create_time,
+        a.update_time
+        FROM asset a
+        LEFT JOIN asset_category ac
+        ON a.category_id = ac.id
+        AND ac.is_deleted = 0
+        LEFT JOIN department d
+        ON a.department_id = d.id
+        AND d.is_deleted = 0
+        LEFT JOIN sys_user u
+        ON a.user_id = u.id
+        AND u.is_deleted = 0
+        WHERE a.id = #{id}
+        AND a.is_deleted = 0
+        LIMIT 1
+    </select>
+
+
+
+    <!-- 修改资产 -->
+    <update id="updateAsset"
+            parameterType="com.kory.fixflow.asset.entity.Asset">
+        UPDATE asset
+        SET
+        asset_no = #{assetNo},
+        asset_name = #{assetName},
+        category_id = #{categoryId},
+        department_id = #{departmentId},
+        user_id = #{userId},
+        purchase_date = #{purchaseDate},
+        location = #{location},
+        status = #{status},
+        remark = #{remark}
+        WHERE id = #{id}
+        AND is_deleted = 0
+    </update>
+
+
+
+
+    <!-- 逻辑删除资产 -->
+    <update id="deleteAssetById"
+            parameterType="java.lang.Long">
+        UPDATE asset
+        SET is_deleted = 1
+        WHERE id = #{id}
+        AND is_deleted = 0
+    </update>
+
+
+
+    <!-- 查询某分类下资产数量 -->
+    <select id="countAssetsByCategoryId"
+            parameterType="java.lang.Long"
+            resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM asset
+        WHERE category_id = #{categoryId}
+        AND is_deleted = 0
+    </select>
+
+
+    <!-- 查询某部门下资产数量 -->
+    <select id="countAssetsByDepartmentId"
+            parameterType="java.lang.Long"
+            resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM asset
+        WHERE department_id = #{departmentId}
+        AND is_deleted = 0
+    </select>
+</mapper>

@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kory.fixflow.user.mapper.UserMapper">
+
+    <!--
+        用户分页列表查询
+
+        重点：
+        1. 查询结果不包含 password；
+        2. 支持用户名模糊搜索；
+        3. 支持手机号模糊搜索；
+        4. 支持状态精确筛选；
+        5. 使用 LIMIT 实现分页。
+    -->
+    <select id="selectUserPageList"
+            parameterType="com.kory.fixflow.user.dto.UserPageQueryDTO"
+            resultType="com.kory.fixflow.user.vo.UserPageVO">
+        SELECT id, username, real_name, phone, email, status, create_time
+        FROM sys_user
+
+        <where>
+            AND is_deleted = 0
+            <if test="username != null and username != ''">
+                AND username LIKE CONCAT('%', #{username}, '%')
+            </if>
+
+            <if test="phone != null and phone != ''">
+                AND phone LIKE CONCAT('%', #{phone}, '%')
+            </if>
+
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <!--
+        用户分页总数查询
+
+        条件必须和列表查询保持一致，
+        否则 total 会不准确。
+    -->
+    <select id="selectUserPageCount"
+            parameterType="com.kory.fixflow.user.dto.UserPageQueryDTO"
+            resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM sys_user
+
+        <where>
+            AND is_deleted = 0
+            <if test="username != null and username != ''">
+                AND username LIKE CONCAT('%', #{username}, '%')
+            </if>
+
+            <if test="phone != null and phone != ''">
+                AND phone LIKE CONCAT('%', #{phone}, '%')
+            </if>
+
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <!--
+    根据用户名查询用户
+
+    作用：
+    新增用户前判断账号是否已经存在。
+    -->
+    <select id="selectByUsername"
+            parameterType="java.lang.String"
+            resultType="com.kory.fixflow.user.entity.User">
+        SELECT id, username, password, real_name, phone, email, department_id, status, create_time, update_time
+        FROM sys_user
+        WHERE username = #{username}
+        AND is_deleted = 0
+        LIMIT 1
+    </select>
+
+    <!--
+    新增用户
+
+    useGeneratedKeys="true"：
+    表示让 MyBatis 获取数据库自动生成的主键。
+
+    keyProperty="id"：
+    表示把生成出来的主键回填到 User 对象的 id 属性中。
+    -->
+    <insert id="insertUser"
+            parameterType="com.kory.fixflow.user.entity.User"
+            useGeneratedKeys="true"
+            keyProperty="id">
+        INSERT INTO sys_user(username, password, real_name, phone, email
+        <if test="departmentId != null">
+            , department_id
+        </if>
+        <if test="status != null">
+            , status
+        </if>
+        )
+        VALUES (#{username}, #{password}, #{realName}, #{phone}, #{email}
+        <if test="departmentId != null">
+            , #{departmentId}
+        </if>
+        <if test="status != null">
+            , #{status}
+        </if>
+        )
+    </insert>
+
+
+
+    <!--
+    根据用户ID查询用户
+
+    用途：
+    修改用户前，先确认该用户确实存在。
+    -->
+    <select id="selectById"
+            parameterType="java.lang.Long"
+            resultType="com.kory.fixflow.user.entity.User">
+        SELECT id, username, password, real_name, phone, email, department_id, status, is_deleted, create_time, update_time
+        FROM sys_user
+        WHERE id = #{id}
+        AND is_deleted = 0
+        LIMIT 1
+    </select>
+
+    <!--
+    修改用户基础信息
+
+    当前只修改：
+    1. real_name
+    2. phone
+    3. email
+
+    update_time 字段由数据库的
+    ON UPDATE CURRENT_TIMESTAMP 自动维护。
+    -->
+    <update id="updateUser"
+            parameterType="com.kory.fixflow.user.entity.User">
+        UPDATE sys_user
+        SET
+        real_name = #{realName},
+        phone = #{phone},
+        email = #{email},
+        department_id = #{departmentId}
+        WHERE id = #{id}
+        AND is_deleted = 0
+    </update>
+
+
+    <!--
+    逻辑删除用户
+
+    注意：
+    这里不是 DELETE FROM，
+    而是把 is_deleted 改成 1。
+    -->
+    <update id="deleteUserById"
+            parameterType="java.lang.Long">
+        UPDATE sys_user
+        SET is_deleted = 1
+        WHERE id = #{id}
+        AND is_deleted = 0
+    </update>
+
+    <!--
+    修改用户状态
+
+    status：
+    1 启用
+    0 禁用
+    -->
+    <update id="updateUserStatus">
+        UPDATE sys_user
+        SET status = #{status}
+        WHERE id = #{id}
+        AND is_deleted = 0
+    </update>
+
+    <!--
+    根据用户ID查询详情
+
+    注意：
+    1. 不返回 password；
+    2. 已逻辑删除用户不允许查询；
+    3. 专门返回 UserDetailVO。
+    -->
+    <select id="selectUserDetailById"
+            parameterType="java.lang.Long"
+            resultType="com.kory.fixflow.user.vo.UserDetailVO">
+        SELECT
+        u.id,
+        u.username,
+        u.real_name,
+        u.phone,
+        u.email,
+        u.department_id,
+        d.dept_name,
+        u.status,
+        u.create_time,
+        u.update_time
+        FROM sys_user u
+        LEFT JOIN department d
+        ON u.department_id = d.id
+        AND d.is_deleted = 0
+        WHERE u.id = #{id}
+        AND u.is_deleted = 0
+        LIMIT 1
+    </select>
+
+
+    <!--
+    重置用户密码
+
+    当前阶段直接更新成默认明文密码：
+    123456
+
+    后续登录认证阶段会升级为加密密码。
+    -->
+    <update id="updatePassword">
+        UPDATE sys_user
+        SET password = #{password}
+        WHERE id = #{id}
+        AND is_deleted = 0
+    </update>
+
+
+    <!--
+    根据手机号查询用户
+
+    说明：
+    当前项目中手机号采用全局唯一策略，
+    即便用户被逻辑删除，该手机号仍然视为已占用。
+    -->
+    <select id="selectByPhone"
+            parameterType="java.lang.String"
+            resultType="com.kory.fixflow.user.entity.User">
+        SELECT id, username, password, real_name, phone, email, department_id, status, is_deleted, create_time, update_time
+        FROM sys_user
+        WHERE phone = #{phone}
+        AND is_deleted = 0
+        LIMIT 1
+    </select>
+
+
+    <!--
+    根据用户名查询可登录用户
+
+    说明：
+    1. 只查询未逻辑删除的用户；
+    2. 登录逻辑会继续判断 status 是否为禁用；
+    3. 需要返回 password，后续要做密码匹配。
+    -->
+    <select id="selectLoginUserByUsername"
+            parameterType="java.lang.String"
+            resultType="com.kory.fixflow.user.entity.User">
+        SELECT id, username, password, real_name, phone, email, department_id, status, is_deleted, create_time, update_time
+        FROM sys_user
+        WHERE username = #{username}
+        AND is_deleted = 0
+        LIMIT 1
+    </select>
+</mapper>

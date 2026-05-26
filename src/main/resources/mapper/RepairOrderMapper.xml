@@ -1,0 +1,844 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kory.fixflow.order.mapper.RepairOrderMapper">
+
+    <!--
+        新增报修工单
+
+        useGeneratedKeys="true"：
+        插入后将数据库自增主键回填到 repairOrder.id。
+    -->
+    <insert id="insertRepairOrder"
+            parameterType="com.kory.fixflow.order.entity.RepairOrder"
+            useGeneratedKeys="true"
+            keyProperty="id">
+
+        INSERT INTO repair_order
+        (
+        order_no,
+        title,
+        description,
+        issue_type,
+        urgency,
+        status,
+        applicant_id,
+        department_id,
+        asset_id,
+        submit_time
+        )
+        VALUES
+        (
+        #{orderNo},
+        #{title},
+        #{description},
+        #{issueType},
+        #{urgency},
+        #{status},
+        #{applicantId},
+        #{departmentId},
+        #{assetId},
+        #{submitTime}
+        )
+    </insert>
+
+
+    <!-- 查询当前登录用户提交的工单分页列表 -->
+    <select id="selectMyRepairOrderPageList"
+            resultType="com.kory.fixflow.order.vo.RepairOrderPageVO">
+        SELECT
+
+        ro.id,
+        ro.order_no,
+        ro.title,
+        ro.issue_type,
+        ro.urgency,
+        ro.status,
+        ro.applicant_id,
+        applicant.real_name AS applicant_real_name,
+        ro.department_id,
+        d.dept_name,
+        ro.asset_id,
+        a.asset_no,
+        a.asset_name,
+        ro.submit_time
+
+        FROM repair_order ro
+
+        LEFT JOIN sys_user applicant
+        ON ro.applicant_id = applicant.id
+        AND applicant.is_deleted = 0
+
+        LEFT JOIN department d
+        ON ro.department_id = d.id
+        AND d.is_deleted = 0
+
+        LEFT JOIN asset a
+        ON ro.asset_id = a.id
+        AND a.is_deleted = 0
+
+        <where>
+            AND ro.is_deleted = 0
+            AND ro.applicant_id = #{currentUserId}
+
+            <if test="queryDTO.orderNo != null and queryDTO.orderNo != ''">
+                AND ro.order_no LIKE CONCAT('%', #{queryDTO.orderNo}, '%')
+            </if>
+
+            <if test="queryDTO.title != null and queryDTO.title != ''">
+                AND ro.title LIKE CONCAT('%', #{queryDTO.title}, '%')
+            </if>
+
+            <if test="queryDTO.issueType != null and queryDTO.issueType != ''">
+                AND ro.issue_type = #{queryDTO.issueType}
+            </if>
+
+            <if test="queryDTO.urgency != null">
+                AND ro.urgency = #{queryDTO.urgency}
+            </if>
+
+            <if test="queryDTO.status != null">
+                AND ro.status = #{queryDTO.status}
+            </if>
+        </where>
+
+        ORDER BY ro.submit_time DESC, ro.id DESC
+        LIMIT #{queryDTO.offset}, #{queryDTO.pageSize}
+    </select>
+
+
+    <!-- 查询当前登录用户提交的工单总数 -->
+    <select id="selectMyRepairOrderPageCount"
+            resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM repair_order ro
+
+        <where>
+            AND ro.is_deleted = 0
+            AND ro.applicant_id = #{currentUserId}
+
+            <if test="queryDTO.orderNo != null and queryDTO.orderNo != ''">
+                AND ro.order_no LIKE CONCAT('%', #{queryDTO.orderNo}, '%')
+            </if>
+
+            <if test="queryDTO.title != null and queryDTO.title != ''">
+                AND ro.title LIKE CONCAT('%', #{queryDTO.title}, '%')
+            </if>
+
+            <if test="queryDTO.issueType != null and queryDTO.issueType != ''">
+                AND ro.issue_type = #{queryDTO.issueType}
+            </if>
+
+            <if test="queryDTO.urgency != null">
+                AND ro.urgency = #{queryDTO.urgency}
+            </if>
+
+            <if test="queryDTO.status != null">
+                AND ro.status = #{queryDTO.status}
+            </if>
+        </where>
+    </select>
+
+
+
+    <!--
+        查询工单详情
+
+        权限判断放在 Service 层：
+        1. 提交人本人可以查看；
+        2. 被指派维修人员可以查看
+    -->
+    <select id="selectMyRepairOrderDetailById"
+            parameterType="java.lang.Long"
+            resultType="com.kory.fixflow.order.vo.RepairOrderDetailVO">
+        SELECT
+
+        ro.id,
+        ro.order_no,
+        ro.title,
+        ro.description,
+        ro.issue_type,
+        ro.urgency,
+        ro.status,
+        ro.applicant_id,
+        applicant.real_name AS applicant_real_name,
+        ro.department_id,
+        d.dept_name,
+        ro.asset_id,
+        a.asset_no,
+        a.asset_name,
+        ro.assignee_id,
+        assignee.real_name AS assignee_real_name,
+        ro.reject_reason,
+        ro.assign_time,
+        ro.accept_time,
+        ro.finish_time,
+        ro.confirm_time,
+        ro.submit_time,
+        ro.create_time,
+        ro.update_time
+
+        FROM repair_order ro
+
+        LEFT JOIN sys_user applicant
+        ON ro.applicant_id = applicant.id
+        AND applicant.is_deleted = 0
+
+        LEFT JOIN department d
+        ON ro.department_id = d.id
+        AND d.is_deleted = 0
+
+        LEFT JOIN asset a
+        ON ro.asset_id = a.id
+        AND a.is_deleted = 0
+
+        LEFT JOIN sys_user assignee
+        ON ro.assignee_id = assignee.id
+        AND assignee.is_deleted = 0
+
+        WHERE ro.id = #{id}
+        AND ro.is_deleted = 0
+        LIMIT 1
+    </select>
+
+
+
+    <!-- 管理员查询待受理工单分页列表 -->
+    <select id="selectPendingRepairOrderPageList"
+            parameterType="com.kory.fixflow.order.dto.AdminPendingRepairOrderPageQueryDTO"
+            resultType="com.kory.fixflow.order.vo.RepairOrderPageVO">
+        SELECT
+
+        ro.id,
+        ro.order_no,
+        ro.title,
+        ro.issue_type,
+        ro.urgency,
+        ro.status,
+        ro.applicant_id,
+        applicant.real_name AS applicant_real_name,
+        ro.department_id,
+        d.dept_name,
+        ro.asset_id,
+        a.asset_no,
+        a.asset_name,
+        ro.submit_time
+
+        FROM repair_order ro
+
+        LEFT JOIN sys_user applicant
+        ON ro.applicant_id = applicant.id
+        AND applicant.is_deleted = 0
+
+        LEFT JOIN department d
+        ON ro.department_id = d.id
+        AND d.is_deleted = 0
+
+        LEFT JOIN asset a
+        ON ro.asset_id = a.id
+        AND a.is_deleted = 0
+
+        <where>
+            AND ro.is_deleted = 0
+            AND ro.status = 0
+
+            <if test="orderNo != null and orderNo != ''">
+                AND ro.order_no LIKE CONCAT('%', #{orderNo}, '%')
+            </if>
+
+            <if test="title != null and title != ''">
+                AND ro.title LIKE CONCAT('%', #{title}, '%')
+            </if>
+
+            <if test="issueType != null and issueType != ''">
+                AND ro.issue_type LIKE CONCAT('%', #{issueType}, '%')
+            </if>
+
+            <if test="urgency != null">
+                AND ro.urgency = #{urgency}
+            </if>
+        </where>
+
+        ORDER BY ro.urgency DESC, ro.submit_time ASC, ro.id ASC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+
+    <!-- 查询待受理工单总数 -->
+    <select id="selectPendingRepairOrderPageCount"
+            parameterType="com.kory.fixflow.order.dto.AdminPendingRepairOrderPageQueryDTO"
+            resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM repair_order ro
+        <where>
+            AND ro.is_deleted = 0
+            AND ro.status = 0
+            
+            <if test="orderNo != null and orderNo != ''">
+                AND ro.order_no LIKE CONCAT('%', #{orderNo}, '%')
+            </if>
+            
+            <if test="title != null and title != ''">
+                AND ro.title LIKE CONCAT('%', #{title}, '%')
+            </if>
+            
+            <if test="issueType != null and issueType != ''">
+                AND ro.issue_type LIKE CONCAT('%', #{issueType}, '%')
+            </if>
+
+            <if test="urgency != null">
+                AND ro.urgency = #{urgency}
+            </if>
+        </where>
+    </select>
+
+
+    <!-- 根据工单ID查询实体 -->
+    <select id="selectById"
+            parameterType="java.lang.Long"
+            resultType="com.kory.fixflow.order.entity.RepairOrder">
+        SELECT
+        id, order_no, title, description, issue_type, urgency, status, applicant_id,
+        department_id, asset_id, assignee_id, reject_reason, assign_time, accept_time,
+        finish_time, confirm_time, submit_time, is_deleted, create_time, update_time
+        FROM repair_order
+        WHERE id = #{id}
+        AND is_deleted = 0
+        LIMIT 1
+    </select>
+
+
+    <!-- 驳回工单 -->
+    <update id="rejectRepairOrder">
+        UPDATE repair_order
+        SET
+        status = #{status},
+        reject_reason = #{rejectReason}
+        WHERE id = #{id}
+        AND is_deleted = 0
+        AND status = #{expectedStatus}
+    </update>
+
+
+    <!-- 派发工单 -->
+    <update id="assignRepairOrder">
+        UPDATE repair_order
+        SET
+        status = #{status},
+        assignee_id = #{assigneeId},
+        assign_time = #{assigneeTime}
+        WHERE id = #{id}
+        AND is_deleted = 0
+        AND status = #{expectedStatus}
+    </update>
+
+
+    <!-- 查询派给当前维修人员的待接单工单分页列表 -->
+    <select id="selectWaitReceivePageList"
+            resultType="com.kory.fixflow.order.vo.RepairOrderPageVO">
+        SELECT
+        ro.id, ro.order_no, ro.title, ro.issue_type, ro.urgency, ro.status, ro.applicant_id,
+        applicant.real_name AS applicant_real_name,
+        ro.department_id, d.dept_name, ro.asset_id, a.asset_no, a.asset_name, ro.submit_time
+        FROM repair_order ro
+
+        LEFT JOIN sys_user applicant
+        ON ro.applicant_id = applicant.id
+        AND applicant.is_deleted = 0
+        LEFT JOIN department d
+        ON ro.department_id = d.id
+        AND d.is_deleted = 0
+        LEFT JOIN asset a
+        ON ro.asset_id = a.id
+        AND a.is_deleted = 0
+
+        <where>
+            AND ro.is_deleted = 0
+            AND ro.status = 2
+            AND ro.assignee_id = #{currentUserId}
+
+            <if test="queryDTO.orderNo != null and queryDTO.orderNo != ''">
+                AND ro.order_no LIKE CONCAT('%', #{queryDTO.orderNo}, '%')
+            </if>
+
+            <if test="queryDTO.title != null and queryDTO.title != ''">
+                AND ro.title LIKE CONCAT('%', #{queryDTO.title}, '%')
+            </if>
+
+            <if test="queryDTO.issueType != null and queryDTO.issueType != ''">
+                AND ro.issue_type = #{queryDTO.issueType}
+            </if>
+
+            <if test="queryDTO.urgency != null">
+                AND ro.urgency = #{queryDTO.urgency}
+            </if>
+        </where>
+
+        ORDER BY ro.urgency DESC, ro.assign_time ASC, ro.id ASC
+        LIMIT #{queryDTO.offset}, #{queryDTO.pageSize}
+    </select>
+
+
+    <!-- 查询派给当前维修人员的待接单工单总数 -->
+    <select id="selectWaitReceivePageCount"
+            resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM repair_order ro
+
+        <where>
+            AND ro.is_deleted = 0
+            AND ro.status = 2
+            AND ro.assignee_id = #{currentUserId}
+
+            <if test="queryDTO.orderNo != null and queryDTO.orderNo != ''">
+                AND ro.order_no LIKE CONCAT('%', #{queryDTO.orderNo}, '%')
+            </if>
+
+            <if test="queryDTO.title != null and queryDTO.title != ''">
+                AND ro.title LIKE CONCAT('%', #{queryDTO.title}, '%')
+            </if>
+
+            <if test="queryDTO.issueType != null and queryDTO.issueType != ''">
+                AND ro.issue_type = #{queryDTO.issueType}
+            </if>
+
+            <if test="queryDTO.urgency != null">
+                AND ro.urgency = #{queryDTO.urgency}
+            </if>
+        </where>
+    </select>
+
+
+
+    <!-- 维修人员接单 -->
+    <update id="acceptRepairOrder">
+        UPDATE repair_order
+        SET
+        status = #{status},
+        accept_time = #{acceptTime}
+        WHERE id = #{id}
+        AND is_deleted = 0
+        AND status = #{expectedStatus}
+    </update>
+
+
+
+    <!-- 查询当前维修人员正在处理的工单列表 -->
+    <select id="selectProcessingPageList"
+            resultType="com.kory.fixflow.order.vo.RepairOrderPageVO">
+        SELECT
+        ro.id, ro.order_no, ro.title, ro.issue_type, ro.urgency, ro.status, ro.applicant_id,
+        applicant.real_name AS applicant_real_name,
+        ro.department_id, d.dept_name, ro.asset_id, a.asset_no, a.asset_name, ro.submit_time
+        FROM repair_order ro
+
+        LEFT JOIN sys_user applicant
+        ON ro.applicant_id = applicant.id
+        AND applicant.is_deleted = 0
+        LEFT JOIN department d
+        ON ro.department_id = d.id
+        AND d.is_deleted = 0
+        LEFT JOIN asset a
+        ON ro.asset_id = a.id
+        AND a.is_deleted = 0
+
+        <where>
+            AND ro.is_deleted = 0
+            AND ro.status = 3
+            AND ro.assignee_id = #{currentUserId}
+
+            <if test="queryDTO.orderNo != null and queryDTO.orderNo != ''">
+                AND ro.order_no LIKE CONCAT('%', #{queryDTO.orderNo}, '%')
+            </if>
+
+            <if test="queryDTO.title != null and queryDTO.title != ''">
+                AND ro.title LIKE CONCAT('%', #{queryDTO.title}, '%')
+            </if>
+
+            <if test="queryDTO.issueType != null and queryDTO.issueType != ''">
+                AND ro.issue_type = #{queryDTO.issueType}
+            </if>
+
+            <if test="queryDTO.urgency != null">
+                AND ro.urgency = #{queryDTO.urgency}
+            </if>
+        </where>
+
+        ORDER BY ro.urgency DESC, ro.accept_time ASC, ro.id ASC
+        LIMIT #{queryDTO.offset}, #{queryDTO.pageSize}
+    </select>
+
+
+    <!-- 查询当前维修人员正在处理的工单总数 -->
+    <select id="selectProcessingPageCount"
+            resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM repair_order ro
+
+        <where>
+            AND ro.is_deleted = 0
+            AND ro.status = 3
+            AND ro.assignee_id = #{currentUserId}
+
+            <if test="queryDTO.orderNo != null and queryDTO.orderNo != ''">
+                AND ro.order_no LIKE CONCAT('%', #{queryDTO.orderNo}, '%')
+            </if>
+
+            <if test="queryDTO.title != null and queryDTO.title != ''">
+                AND ro.title LIKE CONCAT('%', #{queryDTO.title}, '%')
+            </if>
+
+            <if test="queryDTO.issueType != null and queryDTO.issueType != ''">
+                AND ro.issue_type = #{queryDTO.issueType}
+            </if>
+
+            <if test="queryDTO.urgency != null">
+                AND ro.urgency = #{queryDTO.urgency}
+            </if>
+        </where>
+    </select>
+
+
+    <!-- 维修人员完成维修 -->
+    <update id="finishRepairOrder">
+        UPDATE repair_order
+        SET
+        status = #{status},
+        finish_time = #{finishTime}
+        WHERE id = #{id}
+        AND is_deleted = 0
+        AND status = #{expectedStatus}
+    </update>
+
+
+    <!-- 查询当前用户待确认的工单分页列表-->
+    <select id="selectMyWaitConfirmPageList"
+            resultType="com.kory.fixflow.order.vo.RepairOrderPageVO">
+        SELECT
+        ro.id, ro.order_no, ro.title, ro.issue_type, ro.urgency, ro.status, ro.applicant_id,
+        applicant.real_name AS applicant_real_name,
+        ro.department_id, d.dept_name, ro.asset_id, a.asset_no, a.asset_name, ro.submit_time
+        FROM repair_order ro
+        
+        LEFT JOIN sys_user applicant
+        ON ro.applicant_id = applicant.id
+        AND applicant.is_deleted = 0
+        LEFT JOIN department d
+        ON ro.department_id = d.id
+        AND d.is_deleted = 0
+        LEFT JOIN asset a
+        ON ro.asset_id = a.id
+        AND a.is_deleted = 0
+        
+        <where>
+            AND ro.is_deleted = 0
+            AND ro.status = 4
+            AND ro.applicant_id = #{currentUserId}
+            
+            <if test="queryDTO.orderNo != null and queryDTO.orderNo != ''">
+                AND ro.order_no LIKE CONCAT('%', #{queryDTO.orderNo}, '%')
+            </if>
+            
+            <if test="queryDTO.title != null and queryDTO.title != ''">
+                AND ro.title LIKE CONCAT('%', #{queryDTO.title}, '%')
+            </if>
+            
+            <if test="queryDTO.issueType != null and queryDTO.issueType != ''">
+                AND ro.issue_type = #{queryDTO.issueType}
+            </if>
+
+            <if test="queryDTO.urgency != null">
+                AND ro.urgency = #{queryDTO.urgency}
+            </if>
+        </where>
+        ORDER BY ro.finish_time ASC, ro.id ASC
+        LIMIT #{queryDTO.offset}, #{queryDTO.pageSize}
+    </select>
+
+
+    <!-- 查询当前用户待确认的工单总数 -->
+    <select id="selectMyWaitConfirmPageCount"
+            resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM repair_order ro
+        <where>
+            AND ro.is_deleted = 0
+            AND ro.status = 4
+            AND ro.applicant_id = #{currentUserId}
+
+            <if test="queryDTO.orderNo != null and queryDTO.orderNo != ''">
+                AND ro.order_no LIKE CONCAT('%', #{queryDTO.orderNo}, '%')
+            </if>
+
+            <if test="queryDTO.title != null and queryDTO.title != ''">
+                AND ro.title LIKE CONCAT('%', #{queryDTO.title}, '%')
+            </if>
+
+            <if test="queryDTO.issueType != null and queryDTO.issueType != ''">
+                AND ro.issue_type = #{queryDTO.issueType}
+            </if>
+
+            <if test="queryDTO.urgency != null">
+                AND ro.urgency = #{queryDTO.urgency}
+            </if>
+        </where>
+    </select>
+
+
+
+    <!-- 用户确认完成 -->
+    <update id="confirmRepairOrder">
+        UPDATE repair_order
+        SET
+        status = #{status},
+        confirm_time = #{confirmTime}
+        WHERE id = #{id}
+        AND is_deleted = 0
+        AND status = #{expectedStatus}
+    </update>
+
+
+    <!-- 标记工单为已评价 -->
+    <update id="markOrderEvaluated">
+        UPDATE repair_order
+        SET status = #{status}
+        WHERE id = #{id}
+        AND is_deleted = 0
+        AND status = #{expectedStatus}
+    </update>
+
+
+    <!-- 管理员查询全部工单分页列表 -->
+    <select id="selectAdminRepairOrderPageList"
+            parameterType="com.kory.fixflow.order.dto.AdminRepairOrderPageQueryDTO"
+            resultType="com.kory.fixflow.order.vo.RepairOrderPageVO">
+        SELECT
+        ro.id,
+        ro.order_no,
+        ro.title,
+        ro.issue_type,
+        ro.urgency,
+        ro.status,
+        ro.applicant_id,
+        applicant.real_name AS applicant_real_name,
+        ro.department_id,
+        d.dept_name,
+        ro.asset_id,
+        a.asset_no,
+        a.asset_name,
+        ro.submit_time
+        FROM repair_order ro
+
+        LEFT JOIN sys_user applicant
+        ON ro.applicant_id = applicant.id
+        AND applicant.is_deleted = 0
+        LEFT JOIN department d
+        ON ro.department_id = d.id
+        AND d.is_deleted = 0
+        LEFT JOIN asset a
+        on ro.asset_id = a.id
+        AND a.is_deleted = 0
+
+        <where>
+            AND ro.is_deleted = 0
+
+            <if test="orderNo != null and orderNo != ''">
+                AND ro.order_no LIKE CONCAT('%', #{orderNo}, '%')
+            </if>
+
+            <if test="title != null and title != ''">
+                AND ro.title LIKE CONCAT('%', #{title}, '%')
+            </if>
+
+            <if test="issueType != null and issueType != ''">
+                AND ro.issue_type = #{issueType}
+            </if>
+
+            <if test="urgency != null">
+                AND ro.urgency = #{urgency}
+            </if>
+
+            <if test="status != null">
+                AND ro.status = #{status}
+            </if>
+
+            <if test="applicantId != null">
+                AND ro.applicant_id = #{applicantId}
+            </if>
+
+            <if test="assigneeId != null">
+                AND ro.assignee_id = #{assigneeId}
+            </if>
+
+            <if test="assetId != null">
+                AND ro.asset_id = #{assetId}
+            </if>
+
+            <if test="departmentId != null">
+                AND ro.department_id = #{departmentId}
+            </if>
+        </where>
+
+        ORDER BY ro.submit_time DESC, ro.id ASC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+
+    <!-- 管理员查询全部工单总数 -->
+    <select id="selectAdminRepairOrderPageCount"
+            parameterType="com.kory.fixflow.order.dto.AdminRepairOrderPageQueryDTO"
+            resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM repair_order ro
+
+        <where>
+            AND ro.is_deleted = 0
+
+            <if test="orderNo != null and orderNo != ''">
+                AND ro.order_no LIKE CONCAT('%', #{orderNo}, '%')
+            </if>
+
+            <if test="title != null and title != ''">
+                AND ro.title LIKE CONCAT('%', #{title}, '%')
+            </if>
+
+            <if test="issueType != null and issueType != ''">
+                AND ro.issue_type = #{issueType}
+            </if>
+
+            <if test="urgency != null">
+                AND ro.urgency = #{urgency}
+            </if>
+
+            <if test="status != null">
+                AND ro.status = #{status}
+            </if>
+
+            <if test="applicantId != null">
+                AND ro.applicant_id = #{applicantId}
+            </if>
+
+            <if test="assigneeId != null">
+                AND ro.assignee_id = #{assigneeId}
+            </if>
+
+            <if test="assetId != null">
+                AND ro.asset_id = #{assetId}
+            </if>
+
+            <if test="departmentId != null">
+                AND ro.department_id = #{departmentId}
+            </if>
+        </where>
+    </select>
+
+
+    <!-- 查询当前维修人员已完成任务分页列表 -->
+    <select id="selectRepairCompletedPageList"
+            resultType="com.kory.fixflow.order.vo.RepairOrderPageVO">
+        SELECT
+        ro.id,
+        ro.order_no,
+        ro.title,
+        ro.issue_type,
+        ro.urgency,
+        ro.status,
+        ro.applicant_id,
+        applicant.real_name AS applicant_real_name,
+        ro.department_id,
+        d.dept_name,
+        ro.asset_id,
+        a.asset_no,
+        a.asset_name,
+        ro.submit_time
+        FROM repair_order ro
+
+        LEFT JOIN sys_user applicant
+        ON ro.applicant_id = applicant.id
+        AND applicant.is_deleted = 0
+        LEFT JOIN department d
+        ON ro.department_id = d.id
+        AND d.is_deleted = 0
+        LEFT JOIN asset a
+        ON ro.asset_id = a.id
+        AND a.is_deleted = 0
+
+        <where>
+            AND ro.is_deleted = 0
+            AND assignee_id = #{currentUserId}
+
+            <choose>
+                <when test="queryDTO.status != null">
+                    AND ro.status = #{queryDTO.status}
+                </when>
+
+                <otherwise>
+                    AND ro.status IN(5, 6)
+                </otherwise>
+            </choose>
+
+            <if test="queryDTO.orderNo != null and queryDTO.orderNo != ''">
+                AND ro.order_no LIKE CONCAT('%', #{queryDTO.orderNo}, '%')
+            </if>
+
+            <if test="queryDTO.title != null and queryDTO.title != ''">
+                AND ro.title LIKE CONCAT('%', #{queryDTO.title}, '%')
+            </if>
+
+            <if test="queryDTO.issueType != null and queryDTO.issueType != ''">
+                AND ro.issue_type = #{queryDTO.issueType}
+            </if>
+
+            <if test="queryDTO.urgency != null">
+                AND ro.urgency = #{queryDTO.urgency}
+            </if>
+        </where>
+
+        ORDER BY ro.confirm_time DESC, ro.id DESC
+        LIMIT #{queryDTO.offset}, #{queryDTO.pageSize}
+    </select>
+
+
+    <!-- 查询当前维修人员已完成任务总数 -->
+    <select id="selectRepairCompletedPageCount"
+            resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM repair_order ro
+
+        <where>
+            AND ro.is_deleted = 0
+            AND ro.assignee_id = #{currentUserId}
+
+            <choose>
+                <when test="queryDTO.status != null">
+                    AND ro.status = #{queryDTO.status}
+                </when>
+
+                <otherwise>
+                    AND ro.status IN(5, 6)
+                </otherwise>
+            </choose>
+
+            <if test="queryDTO.orderNo != null and queryDTO.orderNo != ''">
+                AND ro.order_no LIKE CONCAT('%', #{queryDTO.orderNo}, '%')
+            </if>
+
+            <if test="queryDTO.title != null and queryDTO.title != ''">
+                AND ro.title LIKE CONCAT('%', #{queryDTO.title}, '%')
+            </if>
+
+            <if test="queryDTO.issueType != null and queryDTO.issueType != ''">
+                AND ro.issue_type = #{queryDTO.issueType}
+            </if>
+
+            <if test="queryDTO.urgency != null">
+                AND ro.urgency = #{queryDTO.urgency}
+            </if>
+
+        </where>
+    </select>
+
+
+</mapper>

@@ -3,16 +3,24 @@ spring:
     name: fixflow-backend
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc://localhost:3306/fixflow?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://localhost:3306/fixflow?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: root
     password: 985211
 
 server:
   port: 8080
+
 mybatis:
   configuration:
     map-underscore-to-camel-case: true  # 下划线转驼峰
+  mapper-locations: classpath:mapper/*.xml
 
 logging:
   level:
     com.kory.fixflow: debug
+
+jwt:
+  secret: 0XI2m6Kj70jIRtpE9CetZs15Ur62RIp+osRqd3OodBg=
+  # JWT 签名密钥
+  expiration: 7200000
+  # token 过期时间 2小时

@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kory.fixflow.department.mapper.DepartmentMapper">
+
+    <!-- 新增部门 -->
+    <insert id="insertDepartment"
+            parameterType="com.kory.fixflow.department.entity.Department"
+            useGeneratedKeys="true"
+            keyProperty="id">
+        INSERT INTO department(dept_name, parent_id, leader_id, sort_num, status)
+        VALUES (#{deptName}, #{parentId}, #{leaderId}, #{sortNum}, #{status})
+    </insert>
+
+    <!-- 查询所有未删除部门，用于构建树 -->
+    <select id="selectAllDepartments"
+            resultType="com.kory.fixflow.department.vo.DepartmentTreeVO">
+        SELECT id, dept_name, parent_id, leader_id, sort_num, status
+        FROM department
+        WHERE is_deleted = 0
+        ORDER BY sort_num ASC, id ASC
+    </select>
+
+
+    <!-- 根据ID查询部门 -->
+    <select id="selectById"
+            parameterType="java.lang.Long"
+            resultType="com.kory.fixflow.department.entity.Department">
+        SELECT id, dept_name, parent_id, leader_id, sort_num, status, is_deleted, create_time, update_time
+        FROM department
+        WHERE id = #{id}
+        AND is_deleted = 0
+        LIMIT 1
+    </select>
+
+    <!-- 修改部门 -->
+    <update id="updateDepartment"
+            parameterType="com.kory.fixflow.department.entity.Department">
+        UPDATE department
+        SET dept_name = #{deptName}, parent_id = #{parentId}, leader_id = #{leaderId}, sort_num = #{sortNum}, status = #{status}
+        WHERE id = #{id}
+        AND is_deleted = 0
+    </update>
+
+    <!-- 逻辑删除部门 -->
+    <update id="deleteDepartmentById"
+            parameterType="java.lang.Long">
+        UPDATE department
+        SET is_deleted = 1
+        WHERE id = #{id}
+        AND is_deleted = 0
+    </update>
+
+    <!-- 查询子部门数量 -->
+    <select id="countChildrenByParentId"
+            parameterType="java.lang.Long"
+            resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM department
+        WHERE parent_id = #{parentId}
+        AND is_deleted = 0
+    </select>
+
+    <!-- 查询部门下用户数量 -->
+    <select id="countUsersByDepartmentId"
+            parameterType="java.lang.Long"
+            resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM sys_user
+        WHERE department_id = #{departmentId}
+        AND is_deleted = 0
+    </select>
+
+    <!-- 查询同级部门是否同名 -->
+    <select id="countSameNameDepartment"
+            resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM department
+        WHERE dept_name = #{deptName}
+        AND parent_id = #{parentId}
+        AND is_deleted = 0
+
+        <if test="excludeId != null">
+            AND id != #{excludeId}
+        </if>
+    </select>
+
+</mapper>

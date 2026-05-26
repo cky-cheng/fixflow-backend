@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.kory.fixflow.log.mapper.OperationLogMapper">
+
+    <!-- 新增操作日志 -->
+    <insert id="insertOperationLog"
+            parameterType="com.kory.fixflow.log.entity.OperationLog">
+        INSERT INTO operation_log
+        (
+        module,
+        operation,
+        request_method,
+        request_uri,
+        java_method,
+        request_params,
+        operator_id,
+        operator_username,
+        ip,
+        status,
+        error_message,
+        cost_time
+        )
+        VALUES
+        (
+        #{module},
+        #{operation},
+        #{requestMethod},
+        #{requestUri},
+        #{javaMethod},
+        #{requestParams},
+        #{operatorId},
+        #{operatorUsername},
+        #{ip},
+        #{status},
+        #{errorMessage},
+        #{costTime}
+        )
+    </insert>
+
+
+    <!-- 分页查询操作日志 -->
+    <select id="selectOperationLogPageList"
+            parameterType="com.kory.fixflow.log.dto.OperationLogPageQueryDTO"
+            resultType="com.kory.fixflow.log.vo.OperationLogVO">
+        SELECT
+        id,
+        module,
+        operation,
+        request_method,
+        request_uri,
+        java_method,
+        request_params,
+        operator_id,
+        operator_username,
+        ip,
+        status,
+        error_message,
+        cost_time
+        FROM operation_log
+        <where>
+            <if test="module != null and module != ''">
+                AND module LIKE CONCAT('%', #{module}, '%')
+            </if>
+
+            <if test="operation != null and operation != ''">
+                AND operation LIKE CONCAT('%', #{operation}, '%')
+            </if>
+
+            <if test="operatorUsername != null and operatorUsername != ''">
+                AND operator_username LIKE CONCAT('%', #{operatorUsername}, '%')
+            </if>
+
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+
+            <if test="requestMethod != null and requestMethod != ''">
+                AND request_method LIKE CONCAT('%', #{requestMethod}, '%')
+            </if>
+        </where>
+
+        ORDER BY create_time DESC, id ASC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <!-- 查询操作日志总数 -->
+    <select id="selectOperationLogPageCount"
+            parameterType="com.kory.fixflow.log.dto.OperationLogPageQueryDTO"
+            resultType="java.lang.Long">
+        SELECT COUNT(*)
+        FROM operation_log
+
+        <where>
+            <if test="module != null and module != ''">
+                AND module LIKE CONCAT('%', #{module}, '%')
+            </if>
+
+            <if test="operation != null and operation != ''">
+                AND operation LIKE CONCAT('%', #{operation}, '%')
+            </if>
+
+            <if test="operatorUsername != null and operatorUsername != ''">
+                AND operator_username LIKE CONCAT('%', #{operatorUsername}, '%')
+            </if>
+
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+
+            <if test="requestMethod != null and requestMethod != ''">
+                AND request_method LIKE CONCAT('%', #{requestMethod}, '%')
+            </if>
+        </where>
+
+    </select>
+
+
+</mapper>
