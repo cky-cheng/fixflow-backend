@@ -1,10 +1,10 @@
-package com.kory.fixflowbackend;
+package com.kory.fixflow;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class FixflowBackendApplicationTests {
+class FixflowApplicationTests {
     
     @Test
     void contextLoads() {
